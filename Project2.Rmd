@@ -1,0 +1,222 @@
+---
+title: "Project 2"
+author: "Angela Zhao"
+output: 
+  html_document:
+    toc: yes
+    toc_float: yes
+---
+
+```{r global_options, echo=FALSE}
+knitr::opts_chunk$set(fig.height=5, fig.width=6, warning=FALSE, tidy=TRUE, tidy.opts=list(width.cutoff=60))
+```
+
+```{r echo=FALSE,message=FALSE}
+#load libraries and import dataset
+library(ggplot2)
+library(tidyverse)
+library(kableExtra)
+library(stringr)
+kdramas <- read_csv('kdrama.csv')
+```
+
+------------------------------------------------------------------------
+
+# **Introduction**
+
+The kdrama.csv dataset shows the top 250 Korean dramas based on ratings from MyDramaList as of January 2023. The original source of the data is a site called [MyDramaList](https://mydramalist.com/shows/top), where users can rate and write reviews on shows, and additional information was collected from Wikipedia. The data was collected into a csv file by [Kaggle](https://www.kaggle.com/datasets/ahbab911/top-250-korean-dramas-kdrama-dataset).\
+I chose to analyze this dataset because I watch a lot of kdramas, so I thought it would be interesting to see the trends among them.\
+The variables I will be investigating are network, day aired on, rating, duration, and number of episodes.
+
+![](https://1.vikiplatform.com/c/40242c/938e643317.jpg?x=b&s=480x270&e=t&q=g)\
+Source: “The Family Is Coming: Korea: Drama: Watch with English Subtitles &amp; More ✔️.” Rakuten Viki, 3 Jan. 2015, www.viki.com/tv/40242c-the-family-is-coming. 
+
+# **Data Preparation**
+
+I downloaded a csv file from Kaggle that had the data gathered and sorted into a table. I read in the csv file into R. The dataset I got was mostly cleaned and organized. I took the duration, which was given in hours and minutes, and I converted it into minutes in a new variable by extracting the hour and minute numbers as a vector and multiplying the hour by 60 and adding it onto minutes to get total time in minutes. I also cleaned the variable for day(s) aired. There were some values that only appeared a couple of times, so I decided to change them into "Other" in the dataset. I had trouble figuring out how to change some values to "Other" if there were not enough observations in the dataset. I had to experiment with various code to figure out which ones would access the information I needed. There are some NA values, but they are not relevant to the variables I will be investigating, so I left them in the data. There are a total of 250 observations.
+
+```{r echo = FALSE, results='hide'}
+# Cleaning duration variable
+# add a new variable that has the duration in minutes to the kdramas dataset
+
+#empty vector to store new variable
+durationmins = c()
+for (i in 1:nrow(kdramas)) {
+  #get only the numbers from the duration 
+  mins = unlist(str_extract_all(kdramas$Duration[i], "\\d+"))
+  #convert hours into minutes if needed
+  if (length(mins) == 2) {
+    durationmins[i] = as.numeric(mins[1])*60 + as.numeric(mins[2])
+  }
+  else
+    durationmins[i] = mins
+}
+#add variable to the dataset
+kdramas = mutate(kdramas,durationmins = as.numeric(durationmins))
+
+
+
+#Cleaning aired on variable
+# add a new variable that has the days aired as "other" if there are less than 5 instances of it 
+
+#empty vector for new variable
+AiredDays = c()
+for (i in 1:nrow(kdramas)) {
+  #if the value appears in the dataset less than five times, change label to "other"
+  if(table(kdramas$"Aired On")[kdramas$"Aired On"[i]] < 5) { 
+    AiredDays[i] = "Other"
+  }
+  else 
+    AiredDays[i] = kdramas$"Aired On"[i]
+}
+#add variable to dataset
+kdramas = mutate(kdramas,AiredDays)
+```
+
+# **Variable Descriptions**
+
+```{r echo=FALSE}
+kdramavars <- select(kdramas, Name, Rating, Network = "Original Network",Duration = durationmins, Aired = AiredDays, NumEpisodes = "Number of Episodes")
+write_csv(kdramavars,"/Users/angela/Downloads/kdramavars.csv")
+```
+
+| Rating                            | Network                                | Duration                     | Aired                                      | NumEpisodes                    |
+|---------------|---------------|---------------|---------------|---------------|
+| Number                        | String                            | Number                    | String                                | Number                      |
+| Ratings from users on MyDramaList | Platform where show was first released | Length of each episode(mins) | Day(s) of the week the show ran when aired | Number of episodes in the show |
+
+------------------------------------------------------------------------
+
+# **Univariate Analyses**
+
+### Rating
+
+```{r echo = FALSE,results='hide'}
+#histogram of rating distribution
+ggplot(kdramavars,aes(x=Rating)) + geom_histogram(binwidth=.07, fill='purple4',col='black') + theme_classic() + labs(title='Distribution of Ratings')
+#five number summary for rating
+fivenum(kdramavars$Rating)
+```
+
+The distribution of the ratings of the top 250 kdramas has a mean of 8.5, with the highest rating of 9.2, lowest rating of 8.3. The graph shows that there are more kdramas with lower ratings than higher ratings. As the rating decreases, there are more kdramas with that rating.
+
+### Network
+
+```{r echo = FALSE,results='hide'}
+#list every network in a vector, separating strings in each cell with a comma
+networks = unlist(strsplit(str_remove_all(kdramavars$Network,"\\s"),","))
+
+# plot categories that have more than 2 counts in a bar graph
+barplot(table(networks)[table(networks) > 2],col='lavender',main="Distribution of Networks",xlab="Networks",ylab='Count')
+table(networks)[table(networks) > 2]
+#proportion table for network distribution
+round(prop.table(table(networks)[table(networks) > 2]),4)
+```
+
+This graph shows the distribution of the original networks for the top 250 kdramas based on rating (only for networks with more than 2 shows on the list). 26.37% of the shows  are from tvN, 19.18% from Netflix, and the lowest are 1.37% from iQiyi, 1.71% from ViuTV, and 2.05% from Viki. The graph shows that the network with the most shows on the list is tvN, followed by Netflix, which are both very big companies.
+
+### Duration
+
+```{r echo = FALSE,results='hide'}
+#histogram of duration distribution
+ggplot(kdramavars,aes(x=Duration)) + geom_histogram(fill='purple4',col='black',bins=30) + theme_classic() + labs(title="Distribution of Duration of Episodes",x="Duration(mins)")
+#five number summary for duration
+fivenum(kdramavars$Duration)
+```
+
+The distribution of the length of episodes for the top 250 kdramas based on ratings has a mean of `r round(mean(kdramavars$Duration),2)`. The longest episode is 100 minutes, and the shortest episode is 15 minutes. The graph shows that there are a lot of episodes around one hour and half an hour long.
+
+### Aired
+
+```{r echo = FALSE,results='hide'}
+#bar graph of days aired distribution
+ggplot(kdramavars,aes(x=Aired)) + geom_bar(fill='lavender',col='black') + theme_classic() + labs(title="Distribution of Days Aired", x = "Day(s) of The Week Aired")
+#proportion table for days aired distribution
+prop.table(table(kdramavars$Aired))
+```
+
+Out of the top 250 kdramas based on rating, 25.2% aired on Wednesday and Thursday, 24% on Monday and Tuesday, 18.8% on the weekend, 17.2% on Friday and Saturday, 7.2% on Fridays, and 7.6% on other days. The majority of kdramas from the list of 250 most popular based on ratings aired on Monday/Tuesdays and Wednesday/Thursdays.
+
+### Number of Episodes
+
+```{r echo = FALSE,results='hide'}
+#histogram of number of episodes distribution
+ggplot(kdramavars,aes(x=NumEpisodes)) + geom_histogram(fill='purple4',col='black',bins=30) + theme_classic() + labs(title="Distribution of Number of Episodes",x="Number of Episodes")
+#five number summary for number of episodes distribution
+fivenum(kdramavars$NumEpisodes)
+```
+
+The distribution of the number of episodes for the top 250 kdramas based on ratings has a mean of `r round(mean(kdramavars$Duration),2)`, and a median of `r round(median(kdramavars$Duration),2)`. The longest show is 133 episodes, and the shortest show is 1 episode. The graph shows that the majority of shows are 16 episodes, which is the standard length of a kdrama.
+
+------------------------------------------------------------------------
+
+# **Multivariate Analyses**
+
+### Rating and Duration
+
+```{r echo=FALSE,results='hide'}
+#scatterplot for rating and duration
+ggplot(kdramavars,aes(x=Duration,y=Rating)) + geom_point() + theme_classic() + labs(title="Relationship Between Duration and Rating of Kdramas",x="Duration(mins)")
+#correlation
+round(cor(kdramavars$Rating,kdramavars$NumEpisodes),2)
+```
+
+There is a correlation of `r round(cor(kdramavars$Rating,kdramavars$NumEpisodes),2)` between rating and length of each episode for the top 250 kdramas by rating. The correlation shows that there is a slightly negative relationship between the two variables, but it is not strong enough to see from the graph. From the graph, there is no trend that stands out, but the shorter episodes do not have high ratings.
+
+### Duration and Number of Episodes
+
+```{r echo=FALSE, results='hide'}
+#scatterplot for duration and number of episodes
+ggplot(kdramavars,aes(x=Duration,y=NumEpisodes)) + geom_point() + theme_classic() + labs(title="Relationship Between Duration and Number of Episodes",x="Duration(mins)",y="Number of Episodes")
+#correlation
+round(cor(kdramavars$Duration,kdramavars$NumEpisodes),2)
+```
+
+There is a correlation of `r round(cor(kdramavars$Duration,kdramavars$NumEpisodes),2)` between length of an episode and number of episodes of the top 250 kdramas by rating. The correlation shows that there is a slightly negative relationship between the two variables, but from the graph, it looks like it is because there are a couple of outliers at the top of the graph with 100 episodes. There seems to not be much of a relationship between the two variables.
+
+### Rating and Number of Episodes
+
+```{r echo=FALSE, results='hide'}
+#scatterplot for rating and number of episodes
+ggplot(kdramavars,aes(x=Rating,y=NumEpisodes)) + geom_point() + theme_classic() + labs(title="Relationship Between Rating and Number of Episodes",y="Number of Episodes")
+#correlation
+round(cor(kdramavars$Rating,kdramavars$NumEpisodes),2)
+```
+
+There is a correlation of `r round(cor(kdramavars$Rating,kdramavars$NumEpisodes),2)` between rating and number of episodes of the top 250 kdramas by rating. The correlation shows that there is a slightly negative relationship between the two variables. This can be seen from the graph, particularly for the shows with a lot of episodes, but the shows with around 50 or less episodes have varied ratings.
+
+### Days Aired and Rating
+
+```{r echo=FALSE}
+#bar graph for rating colored by days aired
+ggplot(kdramavars, aes(x=Rating,fill=AiredDays)) + geom_histogram(position='identity',bins=45,col='black') + theme_classic() + labs(title='Rating of Kdramas by Day Aired',x='Rating') + scale_fill_brewer(type='seq',palette='Set3')
+
+#table showing median rating for each days aired category  
+kbl(aggregate(Rating~AiredDays,x=kdramavars,FUN=median),col.names=c("Days Aired","Median Rating"),caption="Median Rating by Days Aired") %>%
+  kable_styling()
+```
+
+This graph shows the distribution of ratings sorted by the days of the week they aired for the top 250 kdramas by rating. The table shows the median rating by days of the week the show aired. The median rating for each day aired is approximately the same. There is no clear relationship that can be stated. The days with the highest median rating are Saturday and Sunday with 8.6 stars, and the lowest is "Other" at 8.3 stars, which are days that have less than 5 observations in the list of 250 kdramas.
+
+------------------------------------------------------------------------
+
+# **Conclusion**
+
+I was not expecting to find any strong relationships between variables because this list doesn't contain every single kdrama, and there are many external factors that go into deciding characteristics of a show. One finding I did expect was the univariate distribution of networks. The most common turned out to be tvN, which is the biggest network for dramas within South Korea. The next most common one is Netflix, which is very popular globally. The results for one distribution that I was not expecting was day of the week aired. I expected Friday/Saturday or Saturday/Sunday to appear the most on this list because those shows tend to have a higher number of viewers because it is the weekend. However, Monday/Tuesday and Wednesday/Thursday ended up appearing the most. This could also be due to the fact that super popular shows will have more ratings, including low ones, so they will not be on the top 250 list. I did not find any significant relationships among my variables of interest. I think this is because there are so many different factors that impact each other, it is hard to find a relationship between only a couple of variables.
+
+## Choice Elements
+1. In-line Code
+  + I used inline code to display descriptive statistics, such as mean and correlation, with my univariate and multivariate analyses. 
+2. Create New Variables
+  + I created a variable for duration in minutes and another one that has the days aired with certain values changed to "other". 
+3. Format String Variable
+  + I reformatted the duration variable. I took out the numbers and calculated the total minutes from each value. 
+4. Loop
+  + For the days aired variable, I had to figure out which observations to change to "other" if they did not appear enough. I used a for loop to go through every row in the dataset and determine whether it needed to be changed into "other".
+5. If Statement
+  + While preparing the data, I used an if statement for both duration and days aired. For duration, I used the if statement to see whether the duration was longer than an hour and needed to be converted or not. For days aired, I checked whether the value in the cell appeared in the table enough times, or if I needed to change it to "other". 
+
+## References
+
+"Top Dramas." MyDramaList, mydramalist.com/shows/top. Accessed 09 Nov. 2023.\
+Hossain, Ahbab. "Top 250 Korean Dramas (KDrama) Dataset." Kaggle, 21 Jan. 2023, www.kaggle.com/datasets/ahbab911/top-250-korean-dramas-kdrama-dataset.
